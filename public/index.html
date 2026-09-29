@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>OTP Sender — JarzX Tech</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* Warm neutral palette — no neon */
+    --ink-0: #0c0b0a;
+    --ink-1: #131211;
+    --ink-2: #1a1918;
+    --ink-3: #232221;
+    --line: rgba(255,255,255,0.055);
+    --line-2: rgba(255,255,255,0.10);
+    --line-3: rgba(255,255,255,0.16);
+    --txt-0: #f2efea;
+    --txt-1: #a39e95;
+    --txt-2: #6b665e;
+    --accent: #c9a875;
+    --accent-soft: rgba(201,168,117,0.14);
+    --accent-line: rgba(201,168,117,0.28);
+    --ok: #7fa676;
+    --warn: #c9a26b;
+    --err: #c27c72;
+    --radius: 14px;
+    --radius-sm: 10px;
+    --radius-lg: 20px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'General Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--ink-0);
+    color: var(--txt-0);
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "ss01","cv11";
+  }
+
+  /* ---------- Background ---------- */
+  .bg-base {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(ellipse 900px 600px at 20% 0%, rgba(201,168,117,0.05), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 85% 30%, rgba(127,166,118,0.035), transparent 60%),
+      radial-gradient(ellipse 800px 700px at 50% 100%, rgba(194,124,114,0.03), transparent 65%);
+  }
+  .bg-vignette {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.5) 100%);
+  }
+  .bg-grain {
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    opacity: 0.035; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 240 240' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* ---------- Nav ---------- */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 32px;
+    background: rgba(12,11,10,0.72);
+    backdrop-filter: saturate(140%) blur(24px);
+    -webkit-backdrop-filter: saturate(140%) blur(24px);
+    border-bottom: 1px solid var(--line);
+    animation: navIn 0.9s cubic-bezier(.2,.9,.2,1);
+  }
+  @keyframes navIn { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+
+  .brand { display: flex; align-items: center; gap: 11px; }
+  .brand-mark {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: linear-gradient(160deg, #2a2724, #14120f);
+    border: 1px solid var(--line-2);
+    display: grid; place-items: center;
+    position: relative;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 12px rgba(0,0,0,0.4);
+    overflow: hidden;
+  }
+  .brand-mark::after {
+    content: ''; position: absolute; inset: -50%;
+    background: conic-gradient(from 0deg, transparent 0deg, rgba(201,168,117,0.4) 40deg, transparent 80deg);
+    animation: markSpin 6s linear infinite;
+    opacity: 0.5;
+  }
+  @keyframes markSpin { to { transform: rotate(360deg); } }
+  .brand-mark svg { position: relative; z-index: 1; }
+  .brand-name {
+    font-size: 15px; font-weight: 600;
+    letter-spacing: -0.2px;
+    color: var(--txt-0);
+  }
+  .brand-name em {
+    font-style: normal; font-weight: 400; color: var(--txt-2);
+    margin-left: 6px;
+  }
+  .nav-links { display: flex; gap: 28px; font-size: 13.5px; color: var(--txt-1); font-weight: 500; }
+  .nav-links a { color: inherit; text-decoration: none; transition: color 0.25s; }
+  .nav-links a:hover { color: var(--txt-0); }
+  @media (max-width: 720px) { .nav-links { display: none; } nav { padding: 16px 20px; } }
+
+  /* ---------- Layout ---------- */
+  .page { position: relative; z-index: 2; }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center;
+    padding: 130px 24px 90px;
+    position: relative;
+  }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 9px;
+    padding: 7px 14px 7px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--line-2);
+    color: var(--txt-1);
+    font-size: 12px; font-weight: 500;
+    letter-spacing: 0.2px;
+    margin-bottom: 32px;
+    animation: fadeUp 0.9s 0.1s both cubic-bezier(.2,.9,.2,1);
+  }
+  .hero-badge .pulse {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--ok);
+    box-shadow: 0 0 0 0 rgba(127,166,118,0.6);
+    animation: pulseRing 2.2s ease-out infinite;
+  }
+  @keyframes pulseRing {
+    0% { box-shadow: 0 0 0 0 rgba(127,166,118,0.5); }
+    70% { box-shadow: 0 0 0 8px rgba(127,166,118,0); }
+    100% { box-shadow: 0 0 0 0 rgba(127,166,118,0); }
+  }
+  .hero h1 {
+    font-size: clamp(34px, 6.2vw, 68px);
+    font-weight: 600;
+    line-height: 1.06;
+    letter-spacing: -1.6px;
+    max-width: 860px;
+    color: var(--txt-0);
+    animation: fadeUp 1s 0.25s both cubic-bezier(.2,.9,.2,1);
+  }
+  .hero h1 .soft {
+    color: var(--txt-2);
+    font-weight: 400;
+    font-style: italic;
+    letter-spacing: -1.2px;
+  }
+  .hero p.sub {
+    margin-top: 26px;
+    font-size: clamp(14.5px, 1.5vw, 16.5px);
+    color: var(--txt-1);
+    max-width: 560px;
+    line-height: 1.7;
+    font-weight: 400;
+    animation: fadeUp 1.1s 0.4s both cubic-bezier(.2,.9,.2,1);
+  }
+  .hero-cta {
+    margin-top: 40px;
+    display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+    animation: fadeUp 1.2s 0.55s both cubic-bezier(.2,.9,.2,1);
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 9px;
+    padding: 13px 22px;
+    border-radius: 11px;
+    font-size: 13.5px; font-weight: 600;
+    text-decoration: none;
+    cursor: pointer; border: none;
+    font-family: inherit;
+    transition: transform 0.22s cubic-bezier(.2,.9,.2,1), background 0.25s, border-color 0.25s, color 0.25s;
+    letter-spacing: -0.1px;
+  }
+  .btn-primary {
+    background: var(--txt-0);
+    color: var(--ink-0);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+  .btn-primary:hover { transform: translateY(-2px); background: #fff; box-shadow: 0 12px 32px rgba(0,0,0,0.4); }
+  .btn-ghost {
+    background: rgba(255,255,255,0.02);
+    color: var(--txt-1);
+    border: 1px solid var(--line-2);
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,0.05); color: var(--txt-0); transform: translateY(-2px); }
+  .btn svg { width: 14px; height: 14px; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(22px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .scroll-hint {
+    position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    color: var(--txt-2); font-size: 10.5px; letter-spacing: 2.5px; text-transform: uppercase;
+    font-weight: 500;
+    animation: fadeUp 1.4s 0.9s both cubic-bezier(.2,.9,.2,1);
+  }
+  .scroll-hint .rail {
+    width: 1px; height: 32px;
+    background: linear-gradient(to bottom, var(--txt-2), transparent);
+    position: relative; overflow: hidden;
+  }
+  .scroll-hint .rail::after {
+    content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 40%;
+    background: var(--txt-0);
+    animation: railMove 2s ease-in-out infinite;
+  }
+  @keyframes railMove {
+    0% { transform: translateY(-100%); opacity: 0; }
+    50% { opacity: 1; }
+    100% { transform: translateY(250%); opacity: 0; }
+  }
+
+  /* ---------- Marquee ---------- */
+  .marquee {
+    overflow: hidden; position: relative;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    padding: 20px 0;
+    background: rgba(19,18,17,0.4);
+  }
+  .marquee::before, .marquee::after {
+    content: ''; position: absolute; top: 0; bottom: 0; width: 140px; z-index: 2; pointer-events: none;
+  }
+  .marquee::before { left: 0; background: linear-gradient(90deg, var(--ink-0), transparent); }
+  .marquee::after { right: 0; background: linear-gradient(270deg, var(--ink-0), transparent); }
+  .marquee-track {
+    display: flex; gap: 54px; white-space: nowrap;
+    animation: marqueeScroll 32s linear infinite;
+    font-family: 'Geist Mono', monospace;
+    font-size: 12px; color: var(--txt-2);
+    letter-spacing: 0.5px; text-transform: uppercase;
+    font-weight: 500;
+    will-change: transform;
+  }
+  .marquee-track span { display: inline-flex; align-items: center; gap: 12px; }
+  .marquee-track .glyph { color: var(--accent); opacity: 0.6; }
+  @keyframes marqueeScroll { from { transform: translate3d(0,0,0); } to { transform: translate3d(-50%,0,0); } }
+
+  /* ---------- Features ---------- */
+  .features { padding: 120px 24px; max-width: 1180px; margin: 0 auto; }
+  .sec-head { text-align: center; margin-bottom: 70px; }
+  .sec-head .kicker {
+    display: inline-block;
+    font-size: 11px; font-weight: 600; letter-spacing: 2.8px;
+    color: var(--accent); text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+  .sec-head h2 {
+    font-size: clamp(26px, 3.6vw, 42px);
+    font-weight: 600; letter-spacing: -1px; line-height: 1.15;
+    color: var(--txt-0);
+  }
+  .sec-head h2 .soft { color: var(--txt-2); font-weight: 400; font-style: italic; }
+  .sec-head p { color: var(--txt-1); margin-top: 18px; font-size: 15px; max-width: 500px; margin-left: auto; margin-right: auto; line-height: 1.65; font-weight: 400; }
+
+  .grid-feat {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 18px;
+  }
+  .feat {
+    background: linear-gradient(180deg, rgba(26,25,24,0.5), rgba(19,18,17,0.5));
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 26px;
+    position: relative; overflow: hidden;
+    transition: transform 0.4s cubic-bezier(.2,.9,.2,1), border-color 0.3s, background 0.3s;
+    opacity: 0; transform: translateY(24px);
+  }
+  .feat.in { opacity: 1; transform: translateY(0); }
+  .feat:hover {
+    transform: translateY(-4px);
+    border-color: var(--line-3);
+    background: linear-gradient(180deg, rgba(26,25,24,0.8), rgba(19,18,17,0.8));
+  }
+  .feat-icon {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid var(--line-2);
+    display: grid; place-items: center;
+    margin-bottom: 20px;
+    color: var(--accent);
+    transition: transform 0.4s cubic-bezier(.2,.9,.2,1), border-color 0.3s;
+  }
+  .feat:hover .feat-icon { transform: scale(1.06); border-color: var(--accent-line); }
+  .feat-icon svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .feat h3 { font-size: 15.5px; font-weight: 600; margin-bottom: 8px; color: var(--txt-0); letter-spacing: -0.2px; }
+  .feat p { font-size: 13.5px; color: var(--txt-1); line-height: 1.6; font-weight: 400; }
+
+  /* ---------- App Section ---------- */
+  .app-section {
+    padding: 100px 24px;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  .card {
+    width: 100%; max-width: 500px;
+    background: linear-gradient(180deg, rgba(26,25,24,0.85), rgba(15,14,13,0.92));
+    border: 1px solid var(--line-2);
+    border-radius: var(--radius-lg);
+    padding: 30px;
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    box-shadow:
+      0 40px 80px -20px rgba(0,0,0,0.6),
+      0 0 0 1px rgba(255,255,255,0.02) inset,
+      0 1px 0 rgba(255,255,255,0.06) inset;
+    position: relative;
+    opacity: 0; transform: translateY(28px);
+    transition: opacity 0.9s cubic-bezier(.2,.9,.2,1), transform 0.9s cubic-bezier(.2,.9,.2,1);
+    will-change: transform, opacity;
+  }
+  .card.in { opacity: 1; transform: translateY(0); }
+
+  .card-head { display: flex; align-items: center; gap: 13px; margin-bottom: 26px; }
+  .card-head .logo {
+    width: 42px; height: 42px; border-radius: 11px;
+    background: linear-gradient(160deg, #2a2724, #14120f);
+    border: 1px solid var(--line-2);
+    display: grid; place-items: center;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+  .card-head .logo svg { width: 18px; height: 18px; }
+  .card-head h2 { font-size: 16px; font-weight: 600; letter-spacing: -0.2px; }
+  .card-head p { font-size: 12.5px; color: var(--txt-2); margin-top: 2px; font-weight: 400; }
+  .status-pill {
+    margin-left: auto;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 500;
+    padding: 5px 10px; border-radius: 999px;
+    background: rgba(127,166,118,0.08);
+    color: var(--ok);
+    border: 1px solid rgba(127,166,118,0.2);
+    letter-spacing: 0.2px;
+  }
+  .status-pill .pulse {
+    width: 5px; height: 5px; border-radius: 50%; background: var(--ok);
+    animation: pulseRing 2.2s ease-out infinite;
+  }
+
+  label {
+    display: block; font-size: 11px; font-weight: 600;
+    color: var(--txt-2); margin-bottom: 8px;
+    letter-spacing: 0.6px; text-transform: uppercase;
+  }
+  .field { margin-bottom: 18px; position: relative; }
+  .input-wrap { position: relative; }
+  .input-wrap .icon {
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    color: var(--txt-2); pointer-events: none;
+    display: grid; place-items: center;
+    transition: color 0.25s;
+  }
+  .input-wrap:focus-within .icon { color: var(--accent); }
+  .input-wrap .icon svg { width: 15px; height: 15px; stroke: currentColor; stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  input {
+    width: 100%;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--line-2);
+    color: var(--txt-0);
+    font-size: 14.5px; font-family: inherit;
+    font-weight: 400;
+    padding: 14px 14px 14px 42px;
+    border-radius: var(--radius-sm);
+    outline: none;
+    transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
+    letter-spacing: -0.1px;
+  }
+  input::placeholder { color: var(--txt-2); }
+  input:focus {
+    border-color: var(--accent-line);
+    background: rgba(0,0,0,0.4);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  /* ---------- Custom Dropdown ---------- */
+  .dropdown { position: relative; }
+  .dropdown-trigger {
+    width: 100%;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--line-2);
+    color: var(--txt-0);
+    font-size: 14.5px; font-family: inherit;
+    font-weight: 400;
+    padding: 14px 14px 14px 42px;
+    border-radius: var(--radius-sm);
+    outline: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between;
+    transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
+    text-align: left;
+    letter-spacing: -0.1px;
+  }
+  .dropdown-trigger:hover { border-color: var(--line-3); }
+  .dropdown.open .dropdown-trigger {
+    border-color: var(--accent-line);
+    background: rgba(0,0,0,0.4);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .dropdown-trigger .val { display: flex; align-items: center; gap: 10px; }
+  .dropdown-trigger .val svg { width: 15px; height: 15px; stroke: var(--accent); stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .dropdown-trigger .chev {
+    width: 12px; height: 12px;
+    transition: transform 0.3s cubic-bezier(.2,.9,.2,1);
+    opacity: 0.5;
+  }
+  .dropdown-trigger .chev svg { width: 100%; height: 100%; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .dropdown.open .chev { transform: rotate(180deg); }
+
+  .dropdown-panel {
+    position: absolute;
+    top: calc(100% + 6px); left: 0; right: 0;
+    background: linear-gradient(180deg, #1e1c1a, #16150f);
+    border: 1px solid var(--line-3);
+    border-radius: var(--radius-sm);
+    padding: 5px;
+    z-index: 50;
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+    pointer-events: none;
+    transition: opacity 0.22s cubic-bezier(.2,.9,.2,1), transform 0.22s cubic-bezier(.2,.9,.2,1);
+    box-shadow: 0 20px 40px -10px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.05);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  .dropdown.open .dropdown-panel {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+  .dropdown-item {
+    padding: 11px 12px;
+    border-radius: 7px;
+    font-size: 13.5px;
+    color: var(--txt-1);
+    cursor: pointer;
+    display: flex; align-items: center; gap: 10px;
+    transition: background 0.18s, color 0.18s;
+    font-weight: 500;
+    user-select: none;
+  }
+  .dropdown-item:hover { background: rgba(255,255,255,0.04); color: var(--txt-0); }
+  .dropdown-item.active { color: var(--accent); background: var(--accent-soft); }
+  .dropdown-item svg { width: 15px; height: 15px; stroke: currentColor; stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .dropdown-item .check { margin-left: auto; opacity: 0; transition: opacity 0.18s; }
+  .dropdown-item.active .check { opacity: 1; }
+  .dropdown-item .check svg { width: 13px; height: 13px; }
+
+  /* ---------- Submit Button ---------- */
+  button.submit {
+    width: 100%; padding: 14px;
+    border: none; border-radius: var(--radius-sm);
+    background: var(--txt-0);
+    color: var(--ink-0);
+    font-family: inherit;
+    font-size: 14px; font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(.2,.9,.2,1), background 0.25s, box-shadow 0.25s;
+    box-shadow: 0 8px 22px -6px rgba(0,0,0,0.5);
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    letter-spacing: -0.1px;
+    position: relative; overflow: hidden;
+  }
+  button.submit:hover:not(:disabled) { transform: translateY(-1px); background: #fff; box-shadow: 0 12px 28px -6px rgba(0,0,0,0.6); }
+  button.submit:active:not(:disabled) { transform: translateY(0); }
+  button.submit:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.submit .spinner {
+    display: none; width: 13px; height: 13px;
+    border: 1.8px solid rgba(12,11,10,0.2);
+    border-top-color: var(--ink-0);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  button.submit.loading .spinner { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---------- Log ---------- */
+  .log {
+    margin-top: 22px;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    max-height: 220px; overflow-y: auto;
+    font-family: 'Geist Mono', monospace;
+    font-size: 11.5px; line-height: 1.75;
+    display: none;
+    overscroll-behavior: contain;
+  }
+  .log.show { display: block; }
+  .log::-webkit-scrollbar { width: 5px; }
+  .log::-webkit-scrollbar-thumb { background: var(--line-3); border-radius: 3px; }
+  .log::-webkit-scrollbar-track { background: transparent; }
+  .log .line {
+    color: var(--txt-1);
+    word-break: break-word;
+    animation: lineIn 0.28s cubic-bezier(.2,.9,.2,1);
+    will-change: transform, opacity;
+  }
+  @keyframes lineIn {
+    from { opacity: 0; transform: translateX(-5px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  .log .line.ok { color: var(--ok); }
+  .log .line.err { color: var(--err); }
+  .log .line.warn { color: var(--warn); }
+  .log .line .t { color: var(--txt-2); margin-right: 7px; }
+
+  .progress {
+    margin-top: 14px; height: 4px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 999px;
+    overflow: hidden; display: none;
+  }
+  .progress.show { display: block; }
+  .progress .bar {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--accent), #b8925f);
+    border-radius: 999px;
+    transition: width 0.45s cubic-bezier(.2,.9,.2,1);
+    will-change: width;
+  }
+
+  /* ---------- Footer ---------- */
+  footer {
+    padding: 70px 24px 50px;
+    border-top: 1px solid var(--line);
+    text-align: center;
+    position: relative; z-index: 2;
+  }
+  .foot-brand { display: inline-flex; align-items: center; gap: 11px; margin-bottom: 16px; }
+  .foot-brand .mark {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: linear-gradient(160deg, #2a2724, #14120f);
+    border: 1px solid var(--line-2);
+    display: grid; place-items: center;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+  .foot-brand .mark svg { width: 17px; height: 17px; }
+  .foot-brand span { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; color: var(--txt-0); }
+  .foot-brand span em { font-style: normal; font-weight: 400; color: var(--txt-2); }
+  footer p { color: var(--txt-2); font-size: 12.5px; font-weight: 400; }
+  footer .links { margin-top: 20px; display: flex; gap: 24px; justify-content: center; font-size: 12.5px; }
+  footer .links a { color: var(--txt-1); text-decoration: none; transition: color 0.25s; font-weight: 500; }
+  footer .links a:hover { color: var(--accent); }
+
+  /* ---------- Mobile perf tweaks ---------- */
+  @media (max-width: 480px) {
+    .card { padding: 22px; border-radius: 16px; }
+    .row { grid-template-columns: 1fr; }
+    nav { padding: 14px 18px; }
+    .hero { padding: 110px 20px 70px; }
+    .features { padding: 80px 20px; }
+    .app-section { padding: 70px 16px; }
+    .bg-grain { display: none; } /* grain off di mobile biar ringan */
+    .bg-base { opacity: 0.7; }
+    .marquee-track { animation-duration: 40s; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-base"></div>
+<div class="bg-vignette"></div>
+<div class="bg-grain"></div>
+
+<nav>
+  <div class="brand">
+    <div class="brand-mark">
+      <!-- Custom monogram: J + X stacked -->
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+        <path d="M6 4v10a4 4 0 0 1-4 4" stroke="#c9a875" stroke-width="2" stroke-linecap="round"/>
+        <path d="M14 4l6 8-6 8" stroke="#f2efea" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M20 4l-6 8 6 8" stroke="#f2efea" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/>
+      </svg>
+    </div>
+    <div class="brand-name">JarzX <em>Tech</em></div>
+  </div>
+  <div class="nav-links">
+    <a href="#features">Fitur</a>
+    <a href="#app">Kirim OTP</a>
+    <a href="#about">Tentang</a>
+  </div>
+</nav>
+
+<div class="page">
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-badge"><span class="pulse"></span> Gateway aktif — GraphQL v2</div>
+    <h1>Kirim OTP lewat gateway yang <span class="soft">dibangun</span> untuk kecepatan.</h1>
+    <p class="sub">Antarmuka ringan yang meneruskan permintaan OTP langsung ke endpoint GraphQL. Bersih, cepat, dan dikontrol penuh dari satu halaman.</p>
+    <div class="hero-cta">
+      <a href="#app" class="btn btn-primary">
+        Mulai sekarang
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+      </a>
+      <a href="#features" class="btn btn-ghost">Pelajari fitur</a>
+    </div>
+    <div class="scroll-hint">
+      <div class="rail"></div>
+      <span>Scroll</span>
+    </div>
+  </section>
+
+  <!-- MARQUEE -->
+  <div class="marquee">
+    <div class="marquee-track">
+      <span><span class="glyph">/</span> GraphQL Gateway</span>
+      <span><span class="glyph">/</span> WhatsApp OTP</span>
+      <span><span class="glyph">/</span> SMS Fallback</span>
+      <span><span class="glyph">/</span> Multi Attempt</span>
+      <span><span class="glyph">/</span> Cooldown 30s</span>
+      <span><span class="glyph">/</span> Real-time Log</span>
+      <span><span class="glyph">/</span> Edge Runtime</span>
+      <span><span class="glyph">/</span> GraphQL Gateway</span>
+      <span><span class="glyph">/</span> WhatsApp OTP</span>
+      <span><span class="glyph">/</span> SMS Fallback</span>
+      <span><span class="glyph">/</span> Multi Attempt</span>
+      <span><span class="glyph">/</span> Cooldown 30s</span>
+      <span><span class="glyph">/</span> Real-time Log</span>
+      <span><span class="glyph">/</span> Edge Runtime</span>
+    </div>
+  </div>
+
+  <!-- FEATURES -->
+  <section class="features" id="features">
+    <div class="sec-head">
+      <span class="kicker">Kenapa JarzX</span>
+      <h2>Dirancang untuk <span class="soft">kecepatan.</span></h2>
+      <p>Setiap detail dibuat supaya proses pengiriman OTP berjalan mulus tanpa hambatan.</p>
+    </div>
+    <div class="grid-feat">
+      <div class="feat" data-reveal>
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        </div>
+        <h3>Respon kilat</h3>
+        <p>Diteruskan langsung ke endpoint GraphQL tanpa lapisan tambahan yang memperlambat.</p>
+      </div>
+      <div class="feat" data-reveal>
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <h3>Koneksi aman</h3>
+        <p>Semua permintaan lewat HTTPS dengan header lengkap sesuai gateway target.</p>
+      </div>
+      <div class="feat" data-reveal>
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        </div>
+        <h3>Log real-time</h3>
+        <p>Setiap langkah ditampilkan langsung: cek akun, ambil mode, kirim, sampai hasil.</p>
+      </div>
+      <div class="feat" data-reveal>
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        </div>
+        <h3>Cooldown otomatis</h3>
+        <p>Jeda 30 detik antar permintaan supaya proses tetap stabil dan tidak kena limit cepat.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- APP -->
+  <section class="app-section" id="app">
+    <div class="card" id="card">
+      <div class="card-head">
+        <div class="logo">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M6 4v10a4 4 0 0 1-4 4" stroke="#c9a875" stroke-width="2" stroke-linecap="round"/>
+            <path d="M14 4l6 8-6 8" stroke="#f2efea" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M20 4l-6 8 6 8" stroke="#f2efea" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/>
+          </svg>
+        </div>
+        <div>
+          <h2>OTP Sender</h2>
+          <p>Tokopedia GraphQL Gateway</p>
+        </div>
+        <div class="status-pill"><span class="pulse"></span> Online</div>
+      </div>
+
+      <div class="field">
+        <label for="phone">Nomor target</label>
+        <div class="input-wrap">
+          <span class="icon">
+            <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          </span>
+          <input id="phone" type="tel" placeholder="+62 812 3456 7890" autocomplete="off" inputmode="tel" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="count">Jumlah</label>
+          <div class="input-wrap">
+            <span class="icon">
+              <svg viewBox="0 0 24 24"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>
+            </span>
+            <input id="count" type="number" min="1" max="100" value="5" inputmode="numeric" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Metode</label>
+          <!-- Custom dropdown -->
+          <div class="dropdown" id="dropdown">
+            <button type="button" class="dropdown-trigger" id="ddTrigger">
+              <span class="val">
+                <svg id="ddIcon" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <span id="ddLabel">WhatsApp</span>
+              </span>
+              <span class="chev">
+                <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+              </span>
+            </button>
+            <div class="dropdown-panel" id="ddPanel">
+              <div class="dropdown-item active" data-value="whatsapp">
+                <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                WhatsApp
+                <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+              </div>
+              <div class="dropdown-item" data-value="sms">
+                <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                SMS
+                <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+              </div>
+            </div>
+            <input type="hidden" id="mode" value="whatsapp" />
+          </div>
+        </div>
+      </div>
+
+      <button class="submit" id="btn" type="button">
+        <span class="spinner"></span>
+        <span class="label">Mulai kirim OTP</span>
+      </button>
+
+      <div class="progress" id="progress"><div class="bar" id="bar"></div></div>
+      <div class="log" id="log"></div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer id="about">
+    <div class="foot-brand">
+      <div class="mark">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M6 4v10a4 4 0 0 1-4 4" stroke="#c9a875" stroke-width="2" stroke-linecap="round"/>
+          <path d="M14 4l6 8-6 8" stroke="#f2efea" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M20 4l-6 8 6 8" stroke="#f2efea" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/>
+        </svg>
+      </div>
+      <span>JarzX <em>Tech</em></span>
+    </div>
+    <p>Create By JarzX Tech — dirancang presisi, dideploy di edge.</p>
+    <div class="links">
+      <a href="#features">Fitur</a>
+      <a href="#app">Kirim OTP</a>
+      <a href="#about">Tentang</a>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const btn = $('btn');
+  const logEl = $('log');
+  const progress = $('progress');
+  const bar = $('bar');
+  const DELAY = 30000;
+
+  // ---- Reveal on scroll ----
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('in');
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -60px 0px' });
+
+  document.querySelectorAll('[data-reveal]').forEach((el, i) => {
+    el.style.transitionDelay = (i * 70) + 'ms';
+    io.observe(el);
+  });
+  io.observe($('card'));
+
+  // ---- Custom Dropdown ----
+  const dd = $('dropdown');
+  const ddTrigger = $('ddTrigger');
+  const ddPanel = $('ddPanel');
+  const ddLabel = $('ddLabel');
+  const ddIcon = $('ddIcon');
+  const modeInput = $('mode');
+
+  const icons = {
+    whatsapp: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+    sms: '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>'
+  };
+  const labels = { whatsapp: 'WhatsApp', sms: 'SMS' };
+
+  ddTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    dd.classList.toggle('open');
+  });
+
+  ddPanel.querySelectorAll('.dropdown-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const val = item.dataset.value;
+      modeInput.value = val;
+      ddLabel.textContent = labels[val];
+      ddIcon.innerHTML = icons[val];
+      ddPanel.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+      dd.classList.remove('open');
+    });
+  });
+
+  document.addEventListener('click', () => dd.classList.remove('open'));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') dd.classList.remove('open'); });
+
+  // ---- Log helpers ----
+  function stamp() {
+    const d = new Date();
+    return d.toTimeString().slice(0, 8);
+  }
+  function log(msg, cls = '') {
+    logEl.classList.add('show');
+    const line = document.createElement('div');
+    line.className = 'line ' + cls;
+    line.innerHTML = `<span class="t">[${stamp()}]</span>${msg}`;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  function setProgress(p) {
+    progress.classList.add('show');
+    bar.style.width = Math.min(100, p) + '%';
+  }
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+  // ---- Send one ----
+  async function sendOne(phone, mode, idx, total) {
+    log(`Request #${idx}/${total} → ${phone} (${mode})`, 'warn');
+    try {
+      const res = await fetch('/api/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, mode })
+      });
+      const data = await res.json();
+      if (data.success) {
+        log(`OK #${idx} — ${data.message}`, 'ok');
+        return true;
+      }
+      log(`FAIL #${idx} — ${data.message}${data.step ? ' @ ' + data.step : ''}`, 'err');
+      return false;
+    } catch (e) {
+      log(`ERROR #${idx} — ${e.message}`, 'err');
+      return false;
+    }
+  }
+
+  // ---- Submit ----
+  btn.addEventListener('click', async () => {
+    const phone = $('phone').value.trim();
+    const count = Math.min(100, Math.max(1, parseInt($('count').value) || 1));
+    const mode = modeInput.value;
+
+    if (!phone || phone.replace(/\D/g, '').length < 8) {
+      logEl.classList.add('show');
+      log('Nomor tidak valid.', 'err');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.classList.add('loading');
+    btn.querySelector('.label').textContent = 'Mengirim...';
+    logEl.innerHTML = '';
+    logEl.classList.add('show');
+    setProgress(0);
+
+    log(`Memulai pengiriman ${count} OTP ke ${phone}`, 'warn');
+
+    let ok = 0, fail = 0;
+    for (let i = 1; i <= count; i++) {
+      const r = await sendOne(phone, mode, i, count);
+      if (r) ok++; else fail++;
+      setProgress((i / count) * 100);
+      if (i < count) {
+        log(`Menunggu 30 detik sebelum request berikutnya...`, 'warn');
+        for (let s = 30; s > 0; s--) {
+          btn.querySelector('.label').textContent = `Cooldown ${s}s`;
+          await sleep(1000);
+        }
+        btn.querySelector('.label').textContent = 'Mengirim...';
+      }
+    }
+
+    log(`Selesai — Sukses: ${ok}, Gagal: ${fail}`, 'warn');
+    btn.disabled = false;
+    btn.classList.remove('loading');
+    btn.querySelector('.label').textContent = 'Mulai kirim OTP';
+  });
+</script>
+</body>
+</html>
